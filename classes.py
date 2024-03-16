@@ -1,10 +1,10 @@
-from random import randint
+from random import randint, choice
 
 
-class NegativeLivesError(Exception):
-    def __init__(self, lives):
-        super().__init__('Life count cannot be negative')
-        self.lives = lives
+class NegativePowerError(Exception):
+    def __init__(self, power):
+        super().__init__('Power value cannot be negative')
+        self.power = power
 
 
 class NameError(Exception):
@@ -29,20 +29,20 @@ class Player:
     :param name: player's name
     :type name: str
 
-    :param: lives: player's lives, default = 0
-    :type lives: int
+    :param power: player's power, default = 5
+    :type power: int
     """
-    def __init__(self, name, lives=1):
+    def __init__(self, name, power=5):
         """
         Creates instance of player.
 
-        Raises ValueError if name is invalid or lives are negative
+        Raises ValueError if name is invalid or power value is negative
         """
         self._name = name
-        lives = int(lives)
-        if lives < 0:
-            raise NegativeLivesError(lives)
-        self._lives = lives
+        power = int(power)
+        if power < 0:
+            raise NegativePowerError(power)
+        self._power = power
 
     def get_name(self):
         """
@@ -60,29 +60,43 @@ class Player:
             raise NameError('Name cannot be empty')
         self._name = str(new_name).title()
 
-    def get_lives(self):
+    def get_power(self):
         """
-        Returns players's lives.
+        Returns players's power.
         """
-        return self._lives
+        return self._power
 
-    def set_lives(self, new_lives):
+    def set_power(self, new_power):
         """
-        Sets player's lives.
+        Sets player's power.
         """
-        if new_lives < 0:
-            raise NegativeLivesError(new_lives)
-        self._lives = new_lives
+        if new_power < 0:
+            raise NegativePowerError(new_power)
+        self._power = new_power
+
+    def attack(self, enemies):
+        """
+        Chooses enemy from list of enemies.
+        Calculates damage.
+        Apply damage.
+        """
+        if self.get_power() == 0 or not enemies:
+            return (None, 0, False)
+        enemy = choice(enemies)
+        damage = randint(1, self.get_power())
+        took_damage = enemy.take_damage(damage)
+        self.set_power(self.get_power()-1)
+        return (enemy, damage, took_damage)
 
     def info(self):
         """
         Returns basic desrition about player.
         """
-        if self._lives == 1:
-            lives = "life"
+        if self._power == 1:
+            power = "point"
         else:
-            lives = "lives"
-        return f'My name is {self._name}. I have {self._lives} {lives} left.'
+            power = "points"
+        return f'My name is {self._name}. I have {self._power} power {power}.'
 
     def __str__(self):
         return self.info()
@@ -156,6 +170,7 @@ class Enemy:
         if damage <= 0:
             raise ValueError('Damage has to be positive')
         self._health = max(0, self._health-damage)
+        return True
 
     def is_alive(self):
         """
@@ -204,7 +219,11 @@ class Hydra(Enemy):
 
     def __str__(self):
         base = super().__str__()
-        return f'{base} It has {self._heads} heads.'
+        if self._heads == 1:
+            singular = "head"
+        else:
+            singular = "heads"
+        return f'{base} It has {self._heads} {singular}.'
 
     def regenerate(self, health_regen):
         """
@@ -225,7 +244,8 @@ class DragonHydra(Hydra):
         DragonHydra has a chance to avoid taking damage.
         """
         if randint(0, 1):
-            super().take_damage(damage)
+            return super().take_damage(damage)
+        return False
 
 
 class Game:
@@ -236,3 +256,32 @@ class Game:
         else:
             self.enemies = enemies
         self._result = None
+
+    def play(self, rounds):
+        print('Starting the game!')
+        print(self.player.__str__())
+        print('My enemies: ')
+        for all_enemies in self.enemies:
+            print(all_enemies.__str__())
+        for round in range(1, rounds+1):
+            print(f'ROUND {round}:')
+            print(f'Enemies remaining: {len(self.enemies)}')
+            for enemies_left in self.enemies:
+                print(f'{enemies_left.get_name()}, it has {enemies_left.get_health()} health left.')
+            target, damage, status = self.player.attack(self.enemies)
+            if target:
+                if status:
+                    print(f'ATTACK: {target.get_name()} took {damage} damage.')
+                    if not target.is_alive():
+                        print(f'{target.get_name()} died.')
+                        self.enemies.remove(target)
+                else:
+                    print(f'{target.get_name()} did not take dmg.')
+            else:
+                break
+        if self.enemies:
+            self._result = True
+            print('You lost the game!')
+        else:
+            self._result = False
+            print('You won the game! No enemies left!')
